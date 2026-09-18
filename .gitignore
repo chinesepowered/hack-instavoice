@@ -8,13 +8,14 @@ next-env.d.ts
 .DS_Store
 
 # Vendor tooling writes agent skills, hooks and telemetry state into the repo
-# (`insta project create` installs 24 SKILL.md files plus a PostToolUse hook).
-# None of it is source, and none of it should reach a commit or an agent's
-# context, so it is ignored wholesale rather than per-file.
+# (`insta project create|link` installs 24 SKILL.md files plus a PostToolUse
+# hook, and appends its own entries here). None of it is source, and none of it
+# should reach a commit or an agent's context, so it is ignored wholesale.
+# scripts/insta-setup.sh scrubs these after every CLI call.
 .insta/
+.insta-home/
 .claude/
 .codex/
 .agents/
 .github/skills/
 skills-lock.json
-.insta-home/

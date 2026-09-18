@@ -1,0 +1,365 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Mother Tongue 母语</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&family=Noto+Sans+SC:wght@400;700;900&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --cream: #fdf4e8;
+    --cream-deep: #f7e7d3;
+    --paper: #fffdf9;
+    --ink: #3a2c25;
+    --mist: #917f73;
+    --capy: #b98657;
+    --persimmon: #e8663f;
+    --persimmon-soft: #fbdccf;
+    --jade: #4da88a;
+    --jade-soft: #d6ece3;
+    --yuzu: #f5b93f;
+    --shadow: 0 2px 0 0 #e7d5bd, 0 14px 34px -14px rgba(120, 85, 55, .38);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; }
+  body {
+    font-family: Nunito, ui-rounded, system-ui, sans-serif;
+    color: var(--ink);
+    background:
+      radial-gradient(1100px 620px at 10% -12%, #fff6e7 0%, transparent 62%),
+      radial-gradient(900px 560px at 92% 4%, #fdeadb 0%, transparent 58%),
+      var(--cream);
+    overflow: hidden;
+  }
+  .han { font-family: "Noto Sans SC", sans-serif; }
+
+  .deck { height: 100vh; width: 100vw; position: relative; }
+  .slide {
+    position: absolute; inset: 0;
+    display: none;
+    padding: clamp(28px, 4.6vh, 60px) clamp(28px, 5vw, 90px);
+    flex-direction: column;
+    animation: rise .42s cubic-bezier(.2,.7,.3,1);
+  }
+  .slide.on { display: flex; }
+  @keyframes rise { from { opacity: 0; transform: translateY(16px);} to { opacity: 1; transform: none; } }
+
+  h1 { font-size: clamp(42px, 7.2vw, 104px); font-weight: 900; letter-spacing: -.03em; line-height: .98; }
+  h2 { font-size: clamp(26px, 3.5vw, 50px); font-weight: 900; letter-spacing: -.02em; line-height: 1.05; }
+  h3 { font-size: clamp(15px, 1.35vw, 20px); font-weight: 900; }
+  p  { font-size: clamp(14px, 1.28vw, 20px); font-weight: 600; line-height: 1.5; color: var(--mist); }
+  .lede { font-size: clamp(17px, 1.75vw, 27px); color: var(--ink); font-weight: 700; }
+  .ink { color: var(--ink); }
+  .pers { color: var(--persimmon); }
+  .jade { color: var(--jade); }
+
+  .eyebrow {
+    font-size: clamp(11px, .88vw, 14px); font-weight: 900;
+    letter-spacing: .18em; text-transform: uppercase; color: var(--capy);
+  }
+  .card {
+    background: var(--paper); border-radius: 26px;
+    padding: clamp(16px, 1.9vw, 30px); box-shadow: var(--shadow);
+  }
+  .pill {
+    display: inline-flex; align-items: center; gap: 8px;
+    border-radius: 999px; padding: 7px 16px;
+    font-size: clamp(11px, .92vw, 15px); font-weight: 800;
+  }
+  .grid { display: grid; gap: clamp(12px, 1.5vw, 22px); }
+  .muted-box {
+    background: var(--cream-deep); border-radius: 20px;
+    padding: clamp(13px, 1.5vw, 22px);
+  }
+  .rule { height: 3px; background: var(--persimmon); border-radius: 3px; width: 60px; }
+
+  /* nav */
+  .bar {
+    position: fixed; left: 0; right: 0; bottom: 0;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 14px clamp(22px, 4vw, 54px); pointer-events: none;
+  }
+  .dots { display: flex; gap: 7px; pointer-events: auto; }
+  .dot {
+    height: 8px; width: 8px; border-radius: 99px; border: 0;
+    background: #e7d5bd; cursor: pointer; transition: all .22s;
+  }
+  .dot.on { width: 26px; background: var(--persimmon); }
+  .hint { font-size: 12px; font-weight: 800; color: #c4ad93; }
+
+  ul { list-style: none; display: grid; gap: clamp(7px, .85vw, 13px); }
+  li { display: flex; gap: 11px; align-items: flex-start; font-weight: 700;
+       font-size: clamp(13px, 1.18vw, 19px); line-height: 1.42; }
+  li .mark { color: var(--persimmon); font-weight: 900; flex: none; }
+
+  table { border-collapse: collapse; width: 100%; }
+  td { padding: clamp(6px, .72vw, 11px) 10px; vertical-align: top;
+       font-size: clamp(12px, 1.06vw, 17px); font-weight: 700; }
+  tr + tr td { border-top: 2px solid var(--cream-deep); }
+  td.k { color: var(--persimmon); font-weight: 900; white-space: nowrap; }
+  td.v { color: var(--mist); }
+
+  .flow { display: flex; align-items: stretch; gap: 10px; }
+  .node {
+    flex: 1; border-radius: 18px; padding: clamp(10px, 1.1vw, 17px);
+    display: flex; flex-direction: column; gap: 5px; min-width: 0;
+  }
+  .node b { font-size: clamp(12px, 1.02vw, 16px); font-weight: 900; }
+  .node span { font-size: clamp(10px, .86vw, 13px); font-weight: 700; color: var(--mist); line-height: 1.34; }
+  .arrow { align-self: center; color: #d9c2a5; font-weight: 900; font-size: 20px; flex: none; }
+
+  .stat b { display: block; font-size: clamp(22px, 2.6vw, 40px); font-weight: 900; line-height: 1; }
+  .stat span { font-size: clamp(11px, .92vw, 14px); font-weight: 800; color: var(--mist); }
+
+  @media print {
+    body { overflow: visible; background: var(--cream); }
+    .slide { display: flex !important; position: relative; height: 100vh; page-break-after: always; animation: none; }
+    .bar { display: none; }
+  }
+</style>
+</head>
+<body>
+<div class="deck">
+
+  <!-- ══════════ 1 · TITLE ══════════ -->
+  <section class="slide on">
+    <div style="flex:1; display:flex; align-items:center; gap:clamp(20px,4vw,72px); flex-wrap:wrap;">
+      <div style="flex:1 1 300px; min-width:min(300px,100%);">
+        <div class="eyebrow">Boson AI &nbsp;×&nbsp; InstaCloud</div>
+        <h1 style="margin-top:14px;">Mother&nbsp;Tongue<br /><span class="han pers">母语</span></h1>
+        <div class="rule" style="margin:clamp(18px,2.6vh,30px) 0;"></div>
+        <p class="lede" style="max-width:24ch;">
+          You'll never sound like a native speaker.<br />
+          <span class="pers">You can sound like yourself.</span>
+        </p>
+        <p style="margin-top:clamp(14px,2vh,22px); max-width:42ch;">
+          Clone your voice in 15 seconds. Hear <em>that voice</em> speak fluent
+          Mandarin. Then learn to catch up with it.
+        </p>
+      </div>
+
+      <div style="flex:0 1 330px; display:flex; flex-direction:column; align-items:center; gap:18px;">
+        <svg viewBox="0 0 220 200" style="width:min(330px,60vw);" aria-label="Kapi the capybara">
+          <ellipse cx="110" cy="190" rx="74" ry="30" fill="#a8774b"/>
+          <ellipse cx="42" cy="68" rx="14" ry="11" fill="#a8774b" transform="rotate(-18 42 68)"/>
+          <ellipse cx="43" cy="69" rx="7" ry="5" fill="#7d5636" transform="rotate(-18 43 69)"/>
+          <ellipse cx="178" cy="68" rx="14" ry="11" fill="#a8774b" transform="rotate(18 178 68)"/>
+          <ellipse cx="177" cy="69" rx="7" ry="5" fill="#7d5636" transform="rotate(18 177 69)"/>
+          <rect x="32" y="56" width="156" height="114" rx="42" fill="#b98657"/>
+          <rect x="56" y="108" width="108" height="60" rx="30" fill="#c49a70"/>
+          <rect x="63" y="114" width="94" height="48" rx="24" fill="#e3c4a1"/>
+          <ellipse cx="95" cy="128" rx="5.5" ry="4" fill="#6b4a33" transform="rotate(-16 95 128)"/>
+          <ellipse cx="125" cy="128" rx="5.5" ry="4" fill="#6b4a33" transform="rotate(16 125 128)"/>
+          <ellipse cx="51" cy="121" rx="11" ry="7.5" fill="#f2a68c" opacity=".5"/>
+          <ellipse cx="169" cy="121" rx="11" ry="7.5" fill="#f2a68c" opacity=".5"/>
+          <g stroke="#3a2c25" stroke-width="4.5" stroke-linecap="round" fill="none">
+            <path d="M -8 3 Q 0 -7 8 3" transform="translate(72 91)"/>
+            <path d="M -8 3 Q 0 -7 8 3" transform="translate(148 91)"/>
+          </g>
+          <path d="M 102 146 Q 110 153 118 146" fill="none" stroke="#8a6140" stroke-width="2.8" stroke-linecap="round"/>
+          <circle cx="110" cy="48" r="14" fill="#f5b93f"/>
+          <circle cx="105.5" cy="43.5" r="4.2" fill="#ffd982" opacity=".85"/>
+          <path d="M 110 35 Q 118 27 126 31 Q 118 38 110 36 Z" fill="#4da88a"/>
+        </svg>
+        <p style="font-size:13px; text-align:center;">
+          Kapi <span class="han">卡皮</span> is extremely relaxed<br />about your Mandarin.
+        </p>
+      </div>
+    </div>
+    <div class="pill" style="background:var(--jade-soft); color:var(--jade); align-self:flex-start;">
+      ● live · deployed on InstaCloud, ap-southeast (Singapore)
+    </div>
+  </section>
+
+  <!-- ══════════ 2 · PROBLEM → SOLUTION ══════════ -->
+  <section class="slide">
+    <div class="eyebrow">The problem</div>
+    <h2 style="margin-top:10px; max-width:20ch;">They're not beginners.<br />They're ashamed.</h2>
+
+    <div class="grid" style="grid-template-columns:1.05fr .95fr; margin-top:clamp(14px,2.4vh,26px); flex:1; align-items:stretch;">
+      <div style="display:grid; gap:clamp(11px,1.5vh,18px);">
+        <div class="stat card" style="display:flex; gap:clamp(18px,2.6vw,38px);">
+          <div><b class="pers">3.4M</b><span>US residents speak Chinese at home</span></div>
+          <div><b class="ink">0</b><span>apps that model <em>their</em> voice</span></div>
+        </div>
+        <ul>
+          <li><span class="mark">→</span><span>A large share grew up hearing it, understand it — and still can't speak it.</span></li>
+          <li><span class="mark">→</span><span>Every app hands them a <b class="ink">flawless native speaker</b> to imitate — quietly confirming the thing they already believe: <em>I'll never sound like that.</em></span></li>
+          <li><span class="mark">→</span><span>So they don't open their mouth. And the one sentence they say fluently is the apology.</span></li>
+        </ul>
+        <div class="muted-box" style="text-align:center;">
+          <p class="han" style="font-size:clamp(20px,2.3vw,34px); font-weight:900; color:var(--ink);">对不起，我的中文不好。</p>
+          <p style="margin-top:5px; font-size:clamp(11px,1vw,15px);">"Sorry, my Chinese isn't good."</p>
+        </div>
+      </div>
+
+      <div class="card" style="background:var(--ink); color:var(--cream); height:100%;">
+        <div class="eyebrow" style="color:var(--yuzu);">Our solution</div>
+        <h2 style="margin-top:10px; color:var(--cream); font-size:clamp(22px,2.9vw,40px);">
+          Make the model<br /><span style="color:var(--yuzu);">their own voice.</span>
+        </h2>
+        <p style="color:#d9c7b6; margin-top:clamp(12px,1.8vh,20px);">
+          Self-modelling is established practice in speech therapy: a target you
+          perceive as <b style="color:var(--cream);">attainable</b> is one you
+          actually move toward.
+        </p>
+        <p style="color:#d9c7b6; margin-top:12px;">
+          Until zero-shot cloning and 102-language synthesis lived in the same
+          model, you could not build this. Now it's one API call.
+        </p>
+        <div style="margin-top:clamp(14px,2vh,22px); display:grid; gap:9px;">
+          <div class="pill" style="background:rgba(245,185,63,.16); color:var(--yuzu);">We score rhythm, not phonemes</div>
+          <div class="pill" style="background:rgba(245,185,63,.16); color:var(--yuzu);">We never correct you mid-conversation</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══════════ 3 · HOW IT WORKS ══════════ -->
+  <section class="slide">
+    <div class="eyebrow">How it works</div>
+    <h2 style="margin-top:10px;">Five minutes, one voice — yours.</h2>
+
+    <div class="flow" style="margin-top:clamp(14px,2.2vh,24px);">
+      <div class="node" style="background:var(--persimmon-soft);"><b>1 · Clone</b><span>15s of English → a reusable voice</span></div>
+      <div class="arrow">›</div>
+      <div class="node" style="background:var(--persimmon); color:#fff;"><b>2 · The Mirror</b><span style="color:#ffe5da;">That voice speaks Mandarin. This is the moment.</span></div>
+      <div class="arrow">›</div>
+      <div class="node" style="background:var(--cream-deep);"><b>3 · Practice</b><span>Say it back. Scored on rhythm.</span></div>
+      <div class="arrow">›</div>
+      <div class="node" style="background:var(--cream-deep);"><b>4 · Scenarios</b><span>A first date <span class="han">撩</span>, in Mandarin, live</span></div>
+      <div class="arrow">›</div>
+      <div class="node" style="background:var(--jade-soft);"><b>5 · Send it</b><span>Talking-head video for your grandmother</span></div>
+    </div>
+
+    <div class="grid" style="grid-template-columns:1fr 1fr; margin-top:clamp(14px,2.4vh,26px); flex:1; align-items:stretch;">
+      <div class="card">
+        <h3 class="pers">The technical bet</h3>
+        <p style="margin-top:8px;">
+          Boson has <b class="ink">no pronunciation-scoring endpoint</b>. Rather
+          than fake phoneme scores, we score what actually marks a heritage
+          speaker: <b class="ink">stress and timing.</b>
+        </p>
+        <ul style="margin-top:clamp(10px,1.4vh,16px);">
+          <li><span class="mark">1</span><span>Synthesise the target in <em>their</em> cloned voice</span></li>
+          <li><span class="mark">2</span><span>RMS <b class="ink">energy envelope</b> of target + attempt</span></li>
+          <li><span class="mark">3</span><span>Align with <b class="ink">DTW</b>; walk the warping path back so every syllable knows where it landed</span></li>
+          <li><span class="mark">4</span><span>Words 45% · rhythm 35% · pace 20%</span></li>
+        </ul>
+      </div>
+
+      <div class="card">
+        <h3 class="pers">Architecture</h3>
+        <table style="margin-top:6px;">
+          <tr><td class="k">Browser</td><td class="v">AudioWorklet PCM16 @24k · envelopes + DTW run client-side, so the round trip carries ~200 floats, not audio</td></tr>
+          <tr><td class="k">Direct WSS</td><td class="v">Server mints an ephemeral key; the browser speaks to Boson over its subprotocol. No audio proxy, no relay latency, key never ships</td></tr>
+          <tr><td class="k">InstaCloud</td><td class="v">compute <code>--websocket</code> + Postgres + S3 bucket, all <code>ap-southeast</code></td></tr>
+        </table>
+        <div class="muted-box" style="margin-top:clamp(10px,1.4vh,16px);">
+          <p style="font-size:clamp(11px,1vw,15px);">
+            <b class="ink">Found the hard way:</b> <code>timestamps</code> is documented
+            but returns <code>null</code> for every language — including Boson's own
+            example. We derive syllable windows from the audio instead:
+            Mandarin is syllable-timed, so N hanzi = N energy bursts.
+          </p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══════════ 4 · SPONSORS ══════════ -->
+  <section class="slide">
+    <div class="eyebrow">How we use each sponsor</div>
+    <h2 style="margin-top:10px;">Three Higgs models in a chain, on a cloud that forks per person.</h2>
+
+    <div class="grid" style="grid-template-columns:1fr 1fr; margin-top:clamp(14px,2.2vh,24px); flex:1; align-items:stretch;">
+      <div class="card" style="border-top:6px solid var(--persimmon);">
+        <h3 class="pers">Boson AI</h3>
+        <table style="margin-top:8px;">
+          <tr><td class="k">Higgs TTS 3</td><td class="v"><b class="ink">Cross-lingual clone</b> — English reference in, Mandarin out, same voice. Inline <code>&lt;|emotion:longing|&gt;</code> tags carry the feeling</td></tr>
+          <tr><td class="k">Higgs Realtime</td><td class="v">Full-duplex Mandarin, <code>semantic_vad</code> barge-in, a <code>learner_is_struggling</code> tool — <b class="ink">and our entire STT layer</b></td></tr>
+          <tr><td class="k">Higgs Avatar</td><td class="v">Photo + cloned voice → 480×640 MP4 in ~10s</td></tr>
+        </table>
+      </div>
+
+      <div class="card" style="border-top:6px solid var(--jade);">
+        <h3 class="jade">InstaCloud</h3>
+        <p style="margin-top:8px;">
+          <b class="ink">One branch per learner, forked at runtime in ~1.2s.</b>
+          A voiceprint is biometric data — so branching becomes a
+          <b class="ink">privacy property</b>, not a deploy convenience.
+        </p>
+        <table style="margin-top:10px;">
+          <tr><td class="k">Branching</td><td class="v">Postgres + bucket + compute cloned copy-on-write, per person. Cleanup is one delete</td></tr>
+          <tr><td class="k">Compute</td><td class="v">microVM, <code>--websocket</code>, Singapore</td></tr>
+          <tr><td class="k">Postgres</td><td class="v">Learners, attempts, per-syllable scores</td></tr>
+        </table>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:clamp(12px,1.8vh,20px); display:flex; gap:clamp(16px,3vw,48px); flex-wrap:wrap; align-items:center;">
+      <div class="stat"><b class="jade">1.2s</b><span>branch fork, measured</span></div>
+      <div class="stat"><b class="jade">exact</b><span>Mandarin STT, char-for-char</span></div>
+      <div class="stat"><b class="jade">~10s</b><span>avatar render</span></div>
+      <div class="stat"><b class="jade">0</b><span>API keys in the browser</span></div>
+      <div style="flex:1; min-width:210px;">
+        <p style="font-size:clamp(11px,1vw,15px);">
+          Every path verified against live endpoints — clone, mirror, scoring,
+          a real Mandarin conversation, and the avatar finale.
+        </p>
+      </div>
+    </div>
+  </section>
+
+</div>
+
+<div class="bar">
+  <div class="dots" id="dots"></div>
+  <div class="hint">← → to navigate</div>
+</div>
+
+<script>
+  const slides = [...document.querySelectorAll('.slide')];
+  const dots = document.getElementById('dots');
+  let at = 0;
+
+  slides.forEach((_, i) => {
+    const b = document.createElement('button');
+    b.className = 'dot' + (i === 0 ? ' on' : '');
+    b.setAttribute('aria-label', 'Go to slide ' + (i + 1));
+    b.onclick = () => show(i);
+    dots.appendChild(b);
+  });
+
+  function show(i) {
+    at = Math.max(0, Math.min(slides.length - 1, i));
+    slides.forEach((s, n) => s.classList.toggle('on', n === at));
+    [...dots.children].forEach((d, n) => d.classList.toggle('on', n === at));
+    location.hash = at + 1;
+  }
+
+  addEventListener('keydown', (e) => {
+    if (e.key === 'ArrowRight' || e.key === ' ' || e.key === 'PageDown') { e.preventDefault(); show(at + 1); }
+    if (e.key === 'ArrowLeft' || e.key === 'PageUp') { e.preventDefault(); show(at - 1); }
+    if (e.key === 'Home') show(0);
+    if (e.key === 'End') show(slides.length - 1);
+    if (e.key.toLowerCase() === 'f') document.documentElement.requestFullscreen?.();
+  });
+
+  // tap right half to advance, left half to go back
+  addEventListener('click', (e) => {
+    if (e.target.closest('.dot')) return;
+    show(e.clientX > innerWidth / 2 ? at + 1 : at - 1);
+  });
+
+  function fromHash() {
+    const n = parseInt(location.hash.slice(1), 10);
+    if (n >= 1 && n <= slides.length && n - 1 !== at) show(n - 1);
+  }
+  addEventListener('hashchange', fromHash);
+  fromHash();
+</script>
+</body>
+</html>
