@@ -10,7 +10,7 @@ import { useApp } from "@/lib/store";
 
 /** The reveal. Everything before this is setup; this is the thirty seconds people remember. */
 export default function Mirror() {
-  const { voiceId, next } = useApp();
+  const { voiceId, next, go } = useApp();
   const [phase, setPhase] = useState<"loading" | "ready" | "played">("loading");
   const [error, setError] = useState<string | null>(null);
   const audio = useRef<string | null>(null);
@@ -90,14 +90,21 @@ export default function Mirror() {
         </button>
 
         {phase === "played" && (
-          <motion.button
+          <motion.div
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
-            onClick={next}
-            className="btn btn-ghost"
+            className="flex flex-col items-center gap-3"
           >
-            Now teach me to say it →
-          </motion.button>
+            <button onClick={next} className="btn btn-ghost">
+              Now teach me to say it →
+            </button>
+            <button
+              onClick={() => go("clone")}
+              className="text-sm font-bold text-mist underline underline-offset-4 hover:text-ink"
+            >
+              Doesn&rsquo;t sound like you? Record again
+            </button>
+          </motion.div>
         )}
       </div>
     </div>

@@ -204,6 +204,15 @@ Everything below was found by running against the real endpoints.
   Realtime session. Quality is excellent (exact, character-for-character on a
   2.8s Mandarin clip) but it needs ~2s of audio; sub-second clips come back as
   nonsense in the wrong language.
+- **Output is quiet and inconsistent between voices.** Two cloned voices saying
+  the same line came back peaking at 0.33 and 0.73, at an RMS of 0.064 and 0.103
+  where speech normally sits at 0.15-0.25. On laptop speakers in a loud room
+  that is close to inaudible, so one-shot clips are peak-normalised before
+  playback and the Realtime stream runs through a gain stage plus a compressor
+  (`normalize()` / `PcmPlayer` in `src/lib/audio.ts`).
+- **Cloned voices dedupe on byte-identical audio only.** Re-recording the same
+  script gives a genuinely new `voice_id`, so "record again" works — verified by
+  cloning two different takes of one script and comparing ids.
 - **Rate limits are tight enough to hit by hand**, and a 429 mid-demo looks
   exactly like a broken app, so every call retries with backoff.
 - TTS degrades past ~300 characters and returns garbled audio as a *200*, not an

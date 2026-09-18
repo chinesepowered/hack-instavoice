@@ -178,6 +178,28 @@ export async function decodeToMono(
   }
 }
 
+/* ------------------------------------------------------------- loudness */
+
+/**
+ * Higgs TTS comes back quiet and inconsistent — measured peaks of 0.33 and 0.73
+ * for two voices saying the same line, at an RMS around 0.06-0.10 where speech
+ * normally sits at 0.15-0.25. On laptop speakers in a noisy room that is
+ * inaudible, so every clip is normalised before it reaches the output.
+ */
+export function normalize(samples: Float32Array, targetPeak = 0.95): Float32Array {
+  let peak = 0;
+  for (let i = 0; i < samples.length; i++) {
+    const v = Math.abs(samples[i]);
+    if (v > peak) peak = v;
+  }
+  if (peak < 1e-4) return samples;
+  const gain = Math.min(targetPeak / peak, 12); // cap so silence isn't amplified into hiss
+  if (gain <= 1.02) return samples;
+  const out = new Float32Array(samples.length);
+  for (let i = 0; i < samples.length; i++) out[i] = samples[i] * gain;
+  return out;
+}
+
 /* -------------------------------------------------------------- playback */
 
 /** Gapless scheduler for the PCM chunks Higgs Realtime streams back. */
@@ -188,10 +210,24 @@ export class PcmPlayer {
   /** Live output level, for the mascot and the waveform. */
   level = 0;
 
+  private out: AudioNode | null = null;
+
   private ensure() {
     if (!this.ctx || this.ctx.state === "closed") {
       this.ctx = new AudioContext({ sampleRate: RATE });
       this.at = this.ctx.currentTime;
+      // Streaming audio can't be peak-normalised ahead of time, so lift it with
+      // a fixed gain and let a compressor catch the transients.
+      const gain = this.ctx.createGain();
+      gain.gain.value = 3.2;
+      const comp = this.ctx.createDynamicsCompressor();
+      comp.threshold.value = -18;
+      comp.knee.value = 24;
+      comp.ratio.value = 8;
+      comp.attack.value = 0.004;
+      comp.release.value = 0.2;
+      gain.connect(comp).connect(this.ctx.destination);
+      this.out = gain;
     }
     if (this.ctx.state === "suspended") void this.ctx.resume();
     return this.ctx;
@@ -204,7 +240,7 @@ export class PcmPlayer {
     buf.getChannelData(0).set(samples);
     const src = ctx.createBufferSource();
     src.buffer = buf;
-    src.connect(ctx.destination);
+    src.connect(this.out ?? ctx.destination);
     const now = ctx.currentTime;
     if (this.at < now + 0.04) this.at = now + 0.04;
     src.start(this.at);
@@ -245,11 +281,45 @@ export class PcmPlayer {
   }
 }
 
-export async function playBase64(b64: string, mime = "audio/wav") {
-  const blob = new Blob([base64ToBytes(b64) as BlobPart], { type: mime });
-  const url = URL.createObjectURL(blob);
-  const el = new Audio(url);
-  await el.play();
-  el.onended = () => URL.revokeObjectURL(url);
-  return el;
+export type Playback = { onended: (() => void) | null; stop(): void };
+
+/**
+ * Plays a base64 clip through Web Audio rather than an <audio> element, so the
+ * buffer can be peak-normalised first. An <audio> tag would play Boson's output
+ * at its own quiet level with no way to lift it.
+ */
+export async function playBase64(b64: string): Promise<Playback> {
+  const bytes = base64ToBytes(b64);
+  const ctx = new AudioContext();
+  const decoded = await ctx.decodeAudioData(
+    bytes.buffer.slice(
+      bytes.byteOffset,
+      bytes.byteOffset + bytes.byteLength,
+    ) as ArrayBuffer,
+  );
+
+  const loud = normalize(new Float32Array(decoded.getChannelData(0)));
+  const buf = ctx.createBuffer(1, loud.length, decoded.sampleRate);
+  buf.getChannelData(0).set(loud);
+
+  const src = ctx.createBufferSource();
+  src.buffer = buf;
+  src.connect(ctx.destination);
+
+  const handle: Playback = {
+    onended: null,
+    stop() {
+      try {
+        src.stop();
+      } catch {
+        /* already finished */
+      }
+    },
+  };
+  src.onended = () => {
+    handle.onended?.();
+    void ctx.close();
+  };
+  src.start();
+  return handle;
 }

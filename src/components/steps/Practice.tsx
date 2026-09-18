@@ -17,6 +17,8 @@ type Target = {
   envelope: number[];
   duration: number;
   stamps: WordStamp[] | null;
+  /** Which cloned voice this was synthesised with — re-cloning must invalidate it. */
+  voice: string | null;
 };
 
 type Phase = "idle" | "loading" | "playing" | "recording" | "scoring" | "scored";
@@ -58,7 +60,8 @@ export default function Practice() {
 
   /** Fetch the phrase in the learner's own cloned voice, with word timestamps. */
   async function loadTarget(): Promise<Target> {
-    if (target) return target;
+    // A re-clone changes voiceId, which must invalidate the cached audio.
+    if (target && target.voice === (voiceId ?? null)) return target;
     setPhase("loading");
     const res = await fetch("/api/speech", {
       method: "POST",
@@ -90,6 +93,7 @@ export default function Practice() {
       duration,
       // the live API always returns null here, so recover windows from the audio
       stamps: data.timestamps ?? deriveStamps(samples, phrase.hanzi, duration),
+      voice: voiceId ?? null,
     };
     setTarget(loaded);
     return loaded;
