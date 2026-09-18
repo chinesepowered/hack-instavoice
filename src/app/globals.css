@@ -1,0 +1,98 @@
+@import "tailwindcss";
+
+@theme {
+  --color-cream: #fdf4e8;
+  --color-cream-deep: #f7e7d3;
+  --color-paper: #fffdf9;
+  --color-ink: #3a2c25;
+  --color-mist: #917f73;
+  --color-capy: #b98657;
+  --color-capy-deep: #8d6340;
+  --color-capy-soft: #e8cfb2;
+  --color-persimmon: #e8663f;
+  --color-persimmon-soft: #fbdccf;
+  --color-jade: #4da88a;
+  --color-jade-soft: #d6ece3;
+  --color-blush: #f2a68c;
+  --color-yuzu: #f5b93f;
+
+  --font-display: var(--font-nunito), ui-rounded, "Hiragino Maru Gothic ProN", system-ui, sans-serif;
+  --font-han: var(--font-noto-sc), "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+
+  --radius-blob: 2.5rem;
+
+  --shadow-soft: 0 2px 0 0 #e7d5bd, 0 12px 30px -12px rgba(120, 85, 55, 0.35);
+  --shadow-lift: 0 4px 0 0 #e7d5bd, 0 22px 45px -16px rgba(120, 85, 55, 0.45);
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  background:
+    radial-gradient(1100px 620px at 12% -12%, #fff6e7 0%, transparent 62%),
+    radial-gradient(900px 560px at 92% 4%, #fdeadb 0%, transparent 58%),
+    var(--color-cream);
+  color: var(--color-ink);
+  font-family: var(--font-display);
+  -webkit-font-smoothing: antialiased;
+}
+
+.han {
+  font-family: var(--font-han);
+  letter-spacing: 0.02em;
+}
+
+/* Chunky pressable buttons — the whole UI should feel like a toy. */
+.btn {
+  @apply inline-flex items-center justify-center gap-2 rounded-full px-7 py-3.5
+         text-base font-bold transition-all duration-150 select-none
+         disabled:cursor-not-allowed disabled:opacity-45;
+  box-shadow: 0 4px 0 0 var(--btn-shadow, #c9542f);
+}
+.btn:not(:disabled):hover {
+  transform: translateY(-1px);
+  box-shadow: 0 5px 0 0 var(--btn-shadow, #c9542f);
+}
+.btn:not(:disabled):active {
+  transform: translateY(3px);
+  box-shadow: 0 1px 0 0 var(--btn-shadow, #c9542f);
+}
+.btn-primary {
+  @apply bg-persimmon text-white;
+  --btn-shadow: #bf4a26;
+}
+.btn-ghost {
+  @apply bg-paper text-ink;
+  --btn-shadow: #e2cdb2;
+}
+.btn-jade {
+  @apply bg-jade text-white;
+  --btn-shadow: #3a8a70;
+}
+
+.card {
+  @apply rounded-[2rem] bg-paper p-7;
+  box-shadow: var(--shadow-soft);
+}
+
+.pill {
+  @apply inline-flex items-center gap-1.5 rounded-full px-3 py-1
+         text-xs font-bold tracking-wide;
+}
+
+@keyframes drift {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  50% { transform: translateY(-10px) rotate(2deg); }
+}
+.drift { animation: drift 7s ease-in-out infinite; }
+
+@media (prefers-reduced-motion: reduce) {
+  .drift { animation: none; }
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    transition-duration: 0.001ms !important;
+  }
+}
