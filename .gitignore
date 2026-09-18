@@ -6,23 +6,15 @@ out
 *.tsbuildinfo
 next-env.d.ts
 .DS_Store
-.claude/skills
-.agents/skills
 
-# Local agent credentials
-.insta/agent-session.json
-
-# Local: the control plane this machine linked against
-.insta/link-plane.json
-
-.insta/.agent-session-*.tmp
-
-# InstaCloud: local observe-hook state (regenerated per machine, not source)
-.insta/observe/
-.insta/audit.jsonl
-
-# InstaCloud: agent skills installed by `npx skills add` (regenerable, not source)
-.claude/skills/
-.agents/skills/
+# Vendor tooling writes agent skills, hooks and telemetry state into the repo
+# (`insta project create` installs 24 SKILL.md files plus a PostToolUse hook).
+# None of it is source, and none of it should reach a commit or an agent's
+# context, so it is ignored wholesale rather than per-file.
+.insta/
+.claude/
+.codex/
+.agents/
 .github/skills/
 skills-lock.json
+.insta-home/

@@ -108,6 +108,42 @@ CLI notes (verified against `insta` 0.1.0, which differs from the docs):
 Region is fixed at service-creation time and there is no multi-region, so
 `scripts/insta-setup.sh` sets it before anything else.
 
+## Keeping the tooling contained
+
+`insta project create` / `project link` have side effects well outside what the
+command name suggests, with no opt-out flag. On a first run they:
+
+- install **24 vendor `SKILL.md` files** into `.claude/skills/`, `.agents/skills/`
+  and `.github/skills/` (insta, tigris, better-auth). These load straight into a
+  coding agent's context in this repo.
+- install a **`PostToolUse` hook** into `.claude/settings.json` and
+  `.codex/hooks.json` that executes `.insta/observe/hook.js` after *every* agent
+  tool call.
+- write the **account access token** to `~/.insta/config.json`, outside the repo.
+- append their own entries to `.gitignore`.
+
+For the record, the observe hook was audited and is **local-only**: it scans
+tool-use events for credential exposure and appends findings to
+`.insta/audit.jsonl`. There is no `fetch`, no HTTP client and no URL anywhere in
+it, so nothing is transmitted. (`insta agent observe report` reads that file
+separately — don't run it if the log may contain anything sensitive.)
+
+None of it is wanted here, so:
+
+- `.gitignore` excludes `.insta/`, `.claude/`, `.codex/`, `.agents/`,
+  `.github/skills/` and `skills-lock.json` wholesale, so re-injected files can
+  never reach a commit or be picked up as skills.
+- `scripts/insta-setup.sh` runs the CLI through **`pnpm dlx`** (never installed
+  globally), redirects `HOME` to a repo-local `.insta-home/` so the token stays
+  inside the repo, and **scrubs** the injected files after every call.
+- Revoke the machine's session with `rm -rf .insta-home`.
+
+If you ever run the CLI by hand, do it the same way:
+
+```bash
+HOME=$PWD/.insta-home USERPROFILE=$PWD/.insta-home pnpm dlx insta@latest <cmd>
+```
+
 ## Run it
 
 ```bash
