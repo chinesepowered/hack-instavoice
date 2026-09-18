@@ -1,9 +1,11 @@
 #!/usr/bin/env bash
 # Provision Mother Tongue on InstaCloud, in the Singapore region.
 #
-# Region is fixed at service-creation time and there is no multi-region, so this
-# has to run before anything else. Re-running is safe: existing services are
-# left alone.
+# Region is fixed at service-creation time and there is no multi-region, so the
+# services have to be created with --region before anything else. Re-running is
+# safe: services that already exist are left alone.
+#
+# Verified against insta CLI 0.1.0.
 set -euo pipefail
 
 say() { printf '\033[1;36m==>\033[0m %s\n' "$1"; }
@@ -11,7 +13,7 @@ warn() { printf '\033[1;33m !\033[0m %s\n' "$1"; }
 
 command -v insta >/dev/null 2>&1 || {
   say "Installing the insta CLI"
-  npm install -g insta
+  pnpm add -g insta
 }
 
 if [ -n "${INSTA_API_KEY:-}" ]; then
@@ -21,40 +23,32 @@ else
 fi
 
 PROJECT="${INSTA_PROJECT:-mother-tongue}"
-if ! insta status >/dev/null 2>&1 || [ -n "${INSTA_CREATE:-}" ]; then
+if ! insta status 2>/dev/null | grep -q 'project: [0-9a-f]'; then
   say "Creating project $PROJECT"
-  insta project create "$PROJECT" || warn "project may already exist"
+  insta project create "$PROJECT"
 fi
 
-# --- pick the Singapore region ------------------------------------------------
+# --- region -------------------------------------------------------------------
+# The command is `insta config regions`, not `insta regions`.
 say "Available regions"
-insta regions || warn "could not list regions"
-
-REGION="${INSTA_REGION:-}"
-if [ -z "$REGION" ]; then
-  REGION=$(insta regions 2>/dev/null \
-    | grep -iE 'singapore|\bsin\b|ap-southeast-1' \
-    | grep -oE '[a-z]{2,4}[0-9]?|ap-southeast-1' \
-    | head -1 || true)
-fi
-: "${REGION:=sin}"
-say "Using region: $REGION  (override with INSTA_REGION=...)"
+insta config regions || warn "could not list regions"
+REGION="${INSTA_REGION:-ap-southeast}"   # ap-southeast = Asia Pacific (Singapore)
+say "Using region: $REGION"
 
 add() { # add <type> <name> [extra flags...]
-  local type=$1 name=$2; shift 2
-  if insta services list 2>/dev/null | grep -q "$name"; then
+  local type=$1 name=$2
+  shift 2
+  if insta services list 2>/dev/null | grep -q "^$type/$name"; then
     warn "$type/$name already exists — skipping"
   else
-    say "Adding $type/$name in $REGION"
-    insta services add "$type" "$name" --region "$REGION" "$@"
+    say "Adding $type/$name"
+    insta services add "$type" "$name" "$@"
   fi
 }
 
-add postgres db
-add storage clips --public
-# --websocket gets a larger guest and connection-based concurrency; the browser
-# talks straight to Boson over WS, but the app still serves long-lived requests.
-add compute app
+add postgres db --region "$REGION"
+add storage clips --public          # storage is not region-scoped
+add compute app --region "$REGION" --port 8080
 
 say "Binding the database into compute"
 insta secrets bind DATABASE_URL postgres/db --to compute/app \
@@ -62,19 +56,19 @@ insta secrets bind DATABASE_URL postgres/db --to compute/app \
 
 if [ -n "${BOSON_API_KEY:-}" ]; then
   say "Storing BOSON_API_KEY"
-  insta secrets set BOSON_API_KEY="$BOSON_API_KEY"
+  insta secrets set BOSON_API_KEY "$BOSON_API_KEY"
 else
-  warn "BOSON_API_KEY not in your shell — set it with: insta secrets set BOSON_API_KEY=bai-..."
+  warn "BOSON_API_KEY not in your shell — set it with: insta secrets set BOSON_API_KEY bai-..."
 fi
 
 if [ -n "${INSTA_API_KEY:-}" ]; then
   # The app forks a branch per learner at runtime, so it needs its own token.
-  insta secrets set INSTA_API_KEY="$INSTA_API_KEY"
+  insta secrets set INSTA_API_KEY "$INSTA_API_KEY"
 fi
-insta secrets set INSTA_REGION="$REGION"
+insta secrets set INSTA_REGION "$REGION"
 
-say "Deploying"
+say "Deploying (--websocket: larger guest + connection-based concurrency)"
 insta deploy . --websocket
 
-say "Done. Service URLs:"
+say "Done."
 insta services list

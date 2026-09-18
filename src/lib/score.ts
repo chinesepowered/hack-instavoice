@@ -198,3 +198,66 @@ export function scorePractice(args: {
     userEnvelope: userEnv,
   };
 }
+
+/**
+ * Higgs TTS accepts `timestamps: true` but returns `null` on the live API, for
+ * every language including its own documented English example. So we recover
+ * per-character windows from the audio itself.
+ *
+ * Mandarin makes this tractable: it is syllable-timed and one hanzi is one
+ * syllable, so N characters means N energy bursts. Take the voiced span and cut
+ * it at the N-1 deepest, well-separated energy valleys.
+ */
+export function deriveStamps(
+  samples: Float32Array,
+  text: string,
+  duration: number,
+): WordStamp[] {
+  const chars = [...strip(text)];
+  const n = chars.length;
+  if (n === 0 || samples.length === 0 || duration <= 0) return [];
+  if (n === 1) return [{ word: chars[0], start: 0, end: +duration.toFixed(3) }];
+
+  const BINS = 240;
+  const env = envelope(samples, BINS);
+
+  // Trim to the voiced span so silence at either end can't swallow a syllable.
+  const floor = 0.1;
+  let lo = 0;
+  let hi = BINS - 1;
+  while (lo < hi && env[lo] < floor) lo++;
+  while (hi > lo && env[hi] < floor) hi--;
+  if (hi - lo < n) {
+    lo = 0;
+    hi = BINS - 1;
+  }
+
+  const width = hi - lo + 1;
+  const minGap = Math.max(1, Math.floor((width / n) * 0.45));
+
+  // Greedily take the quietest points that stay clear of each other and the ends.
+  const candidates: number[] = [];
+  for (let i = lo + minGap; i <= hi - minGap; i++) candidates.push(i);
+  candidates.sort((a, b) => env[a] - env[b]);
+
+  const cuts: number[] = [];
+  for (const c of candidates) {
+    if (cuts.length >= n - 1) break;
+    if (cuts.every((k) => Math.abs(k - c) >= minGap)) cuts.push(c);
+  }
+  // Too few valleys (a run-on delivery) — fall back to even division.
+  for (let i = 1; cuts.length < n - 1 && i < n; i++) {
+    const evenly = lo + Math.round((width * i) / n);
+    if (!cuts.includes(evenly)) cuts.push(evenly);
+  }
+  cuts.sort((a, b) => a - b);
+
+  const edges = [lo, ...cuts.slice(0, n - 1), hi + 1];
+  const toSeconds = (bin: number) => (bin / BINS) * duration;
+
+  return chars.map((word, i) => ({
+    word,
+    start: +toSeconds(edges[i]).toFixed(3),
+    end: +toSeconds(edges[i + 1]).toFixed(3),
+  }));
+}

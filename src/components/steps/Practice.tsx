@@ -8,7 +8,7 @@ import { Meter, ScoreRing, Speech } from "@/components/ui";
 import { PHRASE_SETS } from "@/lib/content";
 import { Recorder, decodeToMono, base64ToBytes, playBase64 } from "@/lib/audio";
 import { transcribeOnce } from "@/lib/realtime";
-import { envelope } from "@/lib/score";
+import { deriveStamps, envelope } from "@/lib/score";
 import { useApp } from "@/lib/store";
 import type { KapiMood, Phrase, PracticeScore, WordStamp } from "@/lib/types";
 
@@ -88,7 +88,8 @@ export default function Practice() {
       audio: data.audio,
       envelope: envelope(samples),
       duration,
-      stamps: data.timestamps ?? null,
+      // the live API always returns null here, so recover windows from the audio
+      stamps: data.timestamps ?? deriveStamps(samples, phrase.hanzi, duration),
     };
     setTarget(loaded);
     return loaded;

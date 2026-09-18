@@ -9,6 +9,9 @@ English for their Chinese more times than they can count.
 
 Kapi 卡皮, a capybara, is extremely relaxed about your Mandarin.
 
+**Live:** https://prod-main-app-72ab6b-20xs7r50raw.compute.instacloud-edge.com
+(InstaCloud compute, `ap-southeast` / Singapore)
+
 ---
 
 ## Why your own voice
@@ -34,51 +37,76 @@ Boson has **no pronunciation-scoring endpoint**, so this does not pretend to
 score phonemes. It scores the thing that actually makes a heritage speaker sound
 foreign: **rhythm and stress**.
 
-1. Synthesise the target in the learner's cloned voice with `timestamps: true` →
-   word-level start/end times.
+1. Synthesise the target in the learner's cloned voice.
 2. Take an RMS **energy envelope** of both the target and the attempt.
-3. Align them with **DTW**, and walk the warping path back so every target word
-   knows where it landed in the learner's timeline.
+3. Align them with **DTW**, and walk the warping path back so every target
+   syllable knows where it landed in the learner's timeline.
 4. Score = words landed (45%) + rhythm (35%) + pace (20%).
 
 The visual is the whole point: target on top, your attempt mirrored underneath,
-drifted words highlighted. `src/lib/score.ts`.
+drifted characters highlighted. `src/lib/score.ts`.
 
-> Word timestamps are English/Chinese/Spanish only — which is exactly why this
-> demo is Mandarin.
+## What the live API actually does (vs. the docs)
 
-## Boson API notes discovered while building
+Everything below was verified against the real endpoints, not read off a page.
 
+- **`timestamps` always returns `null`.** The docs advertise word-level
+  timestamps for English, Chinese and Spanish. The field is accepted and the
+  response envelope changes shape, but the value is `null` — for every language,
+  every length, and for the docs' own `"The quick brown fox…"` example.
+  So `deriveStamps()` recovers per-character windows from the audio instead:
+  Mandarin is syllable-timed and one hanzi is one syllable, so N characters means
+  N energy bursts, and we cut the voiced span at the N-1 deepest well-separated
+  valleys. Verified: 11 characters → 11 syllables, 0.24s mean. Arguably better
+  than the API feature, since it measures the audio that actually got generated.
+- **Voice cloning returns `voice_id`**, not `voice` or `id` as the docs samples
+  show. Reading the documented field yields "no voice id" on every clone.
 - **There is no standalone STT endpoint.** `higgs-stt-3.1` exists *only* inside a
   Realtime session, so scoring opens a short manual-turn WebSocket
   (`turn_detection: null`, `output_modalities: ["text"]`), pushes the recording,
   and reads `conversation.item.input_audio_transcription.completed`.
-  See `transcribeOnce()` in `src/lib/realtime.ts`.
+  Transcription quality is excellent — exact, character-for-character on a 2.8s
+  Mandarin clip — but it needs ~2s of audio; sub-second clips come back as
+  nonsense in the wrong language.
 - **The browser talks to Boson directly** — no WebSocket proxy. The server mints
   an ephemeral key (`POST /v1/realtime/client_secrets`) and the browser passes it
   as a subprotocol: `["realtime", "bai-client-secret.<key>"]`.
-- **Realtime is multilingual.** It detects the spoken language and replies in
-  kind, so the scenarios work in Mandarin without extra configuration.
-- **TTS degrades past ~300 characters** and returns garbled audio as a *200*, not
-  an error. `chunkForTts()` splits on CJK sentence boundaries.
-- `timestamps: true` changes the response from audio bytes to a JSON envelope,
-  and cannot be combined with `stream`.
+- **Rate limits are tight enough to hit by hand**, and a 429 mid-demo looks
+  exactly like a broken app, so every call retries with backoff.
+- TTS degrades past ~300 characters and returns garbled audio as a *200*, not an
+  error. `chunkForTts()` splits on CJK sentence boundaries.
 - Reference audio for cloning must be **≥ 3 seconds**; the UI asks for 15.
+- Avatar renders a 480x640 clip in about **10 seconds**.
+
+> If you send Chinese through `curl -d` from Git Bash on Windows it arrives as
+> mojibake and the model generates ~¼-length garbage audio at a 200. Send the
+> body as a UTF-8 file (`--data-binary @body.json`). This cost an hour.
 
 ## How InstaCloud is used
 
 The standout primitive is **branching** — a branch clones the Postgres data, the
 bucket, and every compute service in about a second. So:
 
-**Every learner gets their own branch, forked at runtime.** Your cloned
-voiceprint never shares a table with anyone else's, and cleanup is one
+**Every learner gets their own branch, forked at runtime** (~1.2s, measured). Your
+cloned voiceprint never shares a table with anyone else's, and cleanup is one
 `insta branch delete`. That makes branching a privacy property, not a metaphor.
 The infra panel (top-right in the app) shows the live branch list.
 
 `src/lib/insta.ts` · `src/app/api/session/route.ts`
 
-Region is **Singapore**, set at service-creation time — there is no multi-region
-and it cannot be changed later, so `scripts/insta-setup.sh` does it first.
+CLI notes (verified against `insta` 0.1.0, which differs from the docs):
+
+- The regions command is **`insta config regions`**, not `insta regions`.
+  Singapore is **`ap-southeast`**.
+- There is **no `insta manifest`** command — the infra panel composes its view
+  from `status --json` + `services list --json` + `branch list --json`.
+- `insta branch delete <name>` takes no confirmation flag.
+- On Windows the global CLI is a `.CMD` shim that Node's `execFile` cannot
+  resolve, so spawning fails with `ENOENT` even though it works in a terminal.
+  Set `INSTA_BIN` to the shim's full path, or rely on the `shell: true` fallback.
+
+Region is fixed at service-creation time and there is no multi-region, so
+`scripts/insta-setup.sh` sets it before anything else.
 
 ## Run it
 
@@ -108,14 +136,18 @@ Provisions Postgres + a public bucket + compute in Singapore, binds
 
 ## Stack
 
-Next.js 16 · React 19 · Tailwind 4 · TypeScript 7 · motion · postgres · zustand
+Next.js 16 · React 19 · Tailwind 4 · TypeScript 5.9 · motion · postgres · zustand
+
+TypeScript is pinned to 5.9 and ESLint to 9.x on purpose: `typescript-eslint`
+does not support TS 7, and `eslint-plugin-react` breaks on ESLint 10. Everything
+else is current.
 
 ## Layout
 
 ```
 src/lib/boson.ts      Boson client: voices, speech, client secrets, avatar
 src/lib/realtime.ts   Browser WebSocket: conversation + transcribe-once
-src/lib/score.ts      Energy envelopes, DTW alignment, scoring
+src/lib/score.ts      Energy envelopes, DTW alignment, syllable derivation
 src/lib/audio.ts      Capture, WAV encoding, PCM16, gapless playback
 src/lib/insta.ts      Branch-per-learner over the insta CLI
 src/lib/content.ts    The Mandarin. Read this one first.

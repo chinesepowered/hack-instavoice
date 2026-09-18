@@ -19,7 +19,15 @@ export const instaConfigured = () => Boolean(process.env.INSTA_API_KEY);
 export type InstaBranch = {
   name: string;
   createdAt?: string;
-  services?: string[];
+  isDefault?: boolean;
+};
+
+export type InstaService = {
+  type: string;
+  name: string;
+  region?: string;
+  url?: string;
+  status?: string;
 };
 
 export type InstaInfra = {
@@ -27,37 +35,51 @@ export type InstaInfra = {
   project?: string;
   branch?: string;
   region?: string;
-  services: { type: string; name: string; url?: string }[];
+  services: InstaService[];
   branches: InstaBranch[];
   error?: string;
 };
 
+/**
+ * On Windows the global CLI is a `.CMD` shim, which `execFile` will not resolve
+ * without a shell — hence `spawn insta ENOENT` even when it works in a terminal.
+ * `INSTA_BIN` overrides the lookup entirely.
+ */
+const BIN = process.env.INSTA_BIN ?? "insta";
+const useShell = process.platform === "win32";
+
 let loggedIn: Promise<void> | null = null;
 async function ensureLogin() {
   if (!instaConfigured()) throw new Error("INSTA_API_KEY is not set");
-  loggedIn ??= run("insta", ["login", "--api-key", process.env.INSTA_API_KEY!], {
-    timeout: 20000,
+  loggedIn ??= run(BIN, ["login", "--api-key", process.env.INSTA_API_KEY!], {
+    timeout: 25_000,
+    shell: useShell,
   }).then(() => undefined);
   return loggedIn;
 }
 
-async function insta(args: string[], timeout = 45000): Promise<string> {
+async function insta(args: string[], timeout = 45_000): Promise<string> {
   await ensureLogin();
-  const env = { ...process.env };
-  if (process.env.INSTA_PROJECT_ID) env.INSTA_PROJECT_ID = process.env.INSTA_PROJECT_ID;
-  const { stdout } = await run("insta", args, { timeout, env });
+  const { stdout } = await run(BIN, args, {
+    timeout,
+    shell: useShell,
+    env: process.env,
+    maxBuffer: 8 * 1024 * 1024,
+  });
   return stdout;
 }
 
 function parseJson<T>(text: string, fallback: T): T {
   try {
-    return JSON.parse(text) as T;
+    // The CLI occasionally prints a hint line after the JSON body.
+    const start = text.search(/[[{]/);
+    return start === -1 ? fallback : (JSON.parse(text.slice(start)) as T);
   } catch {
     return fallback;
   }
 }
 
-/** Branch names must be filesystem-and-DNS safe. */
+/** Branch names must be filesystem- and DNS-safe. */
 export function branchNameFor(learnerId: string) {
   return `learner-${learnerId.slice(0, 8).toLowerCase().replace(/[^a-z0-9]/g, "")}`;
 }
@@ -68,7 +90,7 @@ export async function createLearnerBranch(
   if (!instaConfigured()) return null;
   const name = branchNameFor(learnerId);
   try {
-    await insta(["branch", "create", name]);
+    await insta(["branch", "create", name], 30_000);
     return name;
   } catch (err) {
     // A demo must never die because infrastructure was slow.
@@ -80,51 +102,65 @@ export async function createLearnerBranch(
 export async function deleteLearnerBranch(name: string): Promise<void> {
   if (!instaConfigured()) return;
   try {
-    await insta(["branch", "delete", name, "--yes"]);
+    // `branch delete` takes the name only — there is no confirmation flag.
+    await insta(["branch", "delete", name], 30_000);
   } catch (err) {
     console.error("[insta] branch delete failed:", (err as Error).message);
   }
 }
+
+type RawService = {
+  type?: string;
+  name?: string;
+  region?: string;
+  domain?: string | null;
+  status?: string;
+};
+
+type RawBranch = {
+  name?: string;
+  created_at?: string;
+  is_default?: boolean;
+};
+
+type RawStatus = {
+  project?: { projectId?: string; name?: string; branch?: string };
+};
 
 export async function infra(): Promise<InstaInfra> {
   if (!instaConfigured()) {
     return { configured: false, services: [], branches: [] };
   }
   try {
-    const [manifestOut, branchOut] = await Promise.all([
-      insta(["manifest", "--json"], 20000).catch(() => "{}"),
-      insta(["branch", "list", "--json"], 20000).catch(() => "[]"),
+    // This CLI has no `manifest` command — compose the view from the pieces.
+    const [statusOut, servicesOut, branchOut] = await Promise.all([
+      insta(["status", "--json"], 20_000).catch(() => "{}"),
+      insta(["services", "list", "--json"], 20_000).catch(() => "[]"),
+      insta(["branch", "list", "--json"], 20_000).catch(() => "[]"),
     ]);
-    const manifest = parseJson<{
-      project?: string | { id?: string; name?: string };
-      branch?: string;
-      region?: string;
-      services?: { type?: string; name?: string; url?: string }[];
-    }>(manifestOut, {});
-    const branches = parseJson<
-      ({ name?: string; branch?: string; created_at?: string } | string)[]
-    >(branchOut, []);
 
-    const project =
-      typeof manifest.project === "string"
-        ? manifest.project
-        : (manifest.project?.name ?? manifest.project?.id);
+    const status = parseJson<RawStatus>(statusOut, {});
+    const services = parseJson<RawService[]>(servicesOut, []);
+    const branches = parseJson<RawBranch[]>(branchOut, []);
 
     return {
       configured: true,
-      project,
-      branch: manifest.branch,
-      region: manifest.region ?? process.env.INSTA_REGION,
-      services: (manifest.services ?? []).map((s) => ({
+      project: status.project?.name ?? status.project?.projectId,
+      branch: status.project?.branch,
+      region:
+        services.find((s) => s.region)?.region ?? process.env.INSTA_REGION,
+      services: services.map((s) => ({
         type: s.type ?? "service",
         name: s.name ?? "—",
-        url: s.url,
+        region: s.region,
+        url: s.domain ?? undefined,
+        status: s.status,
       })),
-      branches: branches.map((b) =>
-        typeof b === "string"
-          ? { name: b }
-          : { name: b.name ?? b.branch ?? "—", createdAt: b.created_at },
-      ),
+      branches: branches.map((b) => ({
+        name: b.name ?? "—",
+        createdAt: b.created_at,
+        isDefault: b.is_default,
+      })),
     };
   } catch (err) {
     return {
